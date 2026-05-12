@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>美容室 清掃チェックアプリ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+            color: #334155; /* slate-700 */
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* スマートフォン向けにチェックボックスを大きくするスタイル */
+        .custom-checkbox {
+            width: 1.75rem;
+            height: 1.75rem;
+            accent-color: #0ea5e9; /* sky-500 */
+        }
+
+        /* セレクトボックスの矢印のカスタマイズ */
+        select {
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 0.7rem center;
+            background-size: 1em;
+        }
+
+        /* トースト通知のアニメーション */
+        .toast-show {
+            opacity: 1 !important;
+            transform: translate(-50%, 0) !important;
+        }
+
+        /* カスタムスクロールバー */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        /* ドラッグハンドル用スタイル */
+        .drag-handle {
+            cursor: grab;
+            touch-action: none; /* スマホでのスクロール誤爆防止 */
+        }
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+        /* ドラッグ中の要素の見た目 */
+        .sortable-ghost {
+            opacity: 0.3;
+            background-color: #f1f5f9; /* slate-100 */
+        }
+    </style>
+</head>
+<body class="antialiased pb-6">
+
+    <div class="max-w-md mx-auto bg-white min-h-screen shadow-sm relative">
+        
+        <header class="bg-sky-500 text-white p-4 rounded-b-2xl shadow-md sticky top-0 z-10">
+            <div class="flex justify-between items-center mb-2 px-1">
+                <h1 class="text-lg font-bold tracking-wider">清掃チェックシート</h1>
+                <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-1.5 text-xs bg-sky-600 px-2.5 py-1 rounded-full border border-sky-400">
+                        <span class="w-2 h-2 rounded-full bg-green-300 animate-pulse shadow-[0_0_5px_#86efac]"></span>
+                        <span class="font-medium tracking-wide">保存中</span>
+                    </div>
+                    <button id="settings-open-btn" class="p-1.5 hover:bg-sky-400 rounded-full transition active:scale-95" aria-label="設定">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between mt-3 px-1">
+                <button id="prev-day-btn" class="p-2 hover:bg-sky-400 rounded-full transition active:scale-95" aria-label="前日">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                </button>
+                
+                <div class="relative flex items-center justify-center gap-2 bg-sky-600/60 hover:bg-sky-600 py-2.5 px-6 rounded-full transition cursor-pointer shadow-inner">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    <span id="date-display-text" class="font-bold tracking-widest text-sm"></span>
+                    <input type="date" id="date-picker" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
+                </div>
+
+                <button id="next-day-btn" class="p-2 hover:bg-sky-400 rounded-full transition active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed" aria-label="翌日">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </button>
+            </div>
+        </header>
+
+        <main class="p-4">
+            <div id="loading-overlay" class="hidden absolute inset-0 bg-white/80 z-20 flex flex-col items-center justify-center pt-32">
+                <div class="animate-spin rounded-full h-10 w-10 border-4 border-sky-100 border-t-sky-500 mb-3"></div>
+                <p class="text-sky-600 font-medium text-sm">データを読み込み中...</p>
+            </div>
+
+            <div class="mb-6">
+                <h2 class="text-sm font-semibold text-slate-500 mb-2 pl-1">店舗を選択</h2>
+                <div id="shop-tabs" class="grid grid-cols-2 gap-2">
+                    <!-- JSで動的に生成されます -->
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="bg-slate-50 p-3 border-b border-slate-100 flex justify-between items-center">
+                    <h2 id="current-shop-name" class="font-bold text-slate-700">店舗名</h2>
+                    <div class="flex items-center gap-3">
+                        <span id="completion-status" class="text-xs font-bold px-2 py-1 bg-slate-200 text-slate-500 rounded-full transition-colors duration-300">0/0</span>
+                    </div>
+                </div>
+                <ul id="task-list" class="divide-y divide-slate-100">
+                    <!-- JSで動的に生成されます -->
+                </ul>
+            </div>
+        </main>
+
+        <div id="toast" class="fixed bottom-8 left-1/2 bg-slate-800/95 text-white px-5 py-2.5 rounded-full shadow-lg font-medium text-sm z-50 transform -translate-x-1/2 translate-y-4 opacity-0 transition-all duration-300 flex items-center gap-2 pointer-events-none">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span>保存しました</span>
+        </div>
+
+        <!-- 設定モーダル -->
+        <div id="settings-modal" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex flex-col justify-end sm:justify-center items-center backdrop-blur-sm transition-opacity">
+            <div class="bg-white w-full sm:w-[90%] sm:max-w-md h-[85vh] sm:h-auto sm:max-h-[85vh] rounded-t-2xl sm:rounded-2xl flex flex-col shadow-2xl animate-[slideUp_0.3s_ease-out]">
+                <div class="flex justify-between items-center p-4 border-b border-slate-100">
+                    <h2 class="text-lg font-bold text-slate-800">マスターデータ管理</h2>
+                    <button id="settings-close-btn" class="p-2 bg-slate-100 hover:bg-slate-200 rounded-full transition active:scale-95">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+                
+                <!-- 新規追加：編集対象の選択 -->
+                <div class="px-4 py-3 bg-slate-50 border-b border-slate-100">
+                    <label class="text-sm font-bold text-slate-700 block mb-2 flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                        編集対象の店舗
+                    </label>
+                    <select id="settings-target-select" class="w-full bg-white border border-slate-300 text-slate-700 py-2 pl-3 pr-8 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500">
+                        <option value="ALL">全店舗一括で編集</option>
+                        <option value="sunhair">sun hair BRITS のみ</option>
+                        <option value="brothers">BRITS BROTHERS のみ</option>
+                        <option value="tile">THE TILE のみ</option>
+                        <option value="hanare">ブリッツ ハナレ のみ</option>
+                    </select>
+                    <p id="settings-target-warning" class="text-xs text-sky-600 mt-1.5 font-medium">※追加・削除した内容がすべての店舗に適用されます。</p>
+                </div>
+
+                <div class="p-4 overflow-y-auto flex-1 space-y-6 pb-10">
+                    <!-- タスク管理 -->
+                    <div>
+                        <h3 class="font-bold text-slate-700 mb-3 flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                            項目の管理
+                        </h3>
+                        <div class="flex gap-2 mb-3">
+                            <input type="text" id="new-task-input" placeholder="新しい項目名" class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 shadow-sm">
+                            <button id="add-task-btn" class="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-slate-700 transition active:scale-95 shadow-sm whitespace-nowrap">追加</button>
+                        </div>
+                        <ul id="settings-task-list" class="bg-slate-50 border border-slate-200 rounded-lg divide-y divide-slate-200">
+                            <!-- JSで生成 -->
+                        </ul>
+                        <p class="text-xs text-slate-400 mt-2">※ 削除すると過去の履歴表示に影響する場合があります</p>
+                    </div>
+
+                    <!-- スタッフ管理 -->
+                    <div>
+                        <h3 class="font-bold text-slate-700 mb-3 flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                            スタッフの管理
+                        </h3>
+                        <div class="flex gap-2 mb-3">
+                            <input type="text" id="new-staff-input" placeholder="新しいスタッフ名" class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 shadow-sm">
+                            <button id="add-staff-btn" class="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-slate-700 transition active:scale-95 shadow-sm whitespace-nowrap">追加</button>
+                        </div>
+                        <div id="settings-staff-list" class="flex flex-wrap gap-2">
+                            <!-- JSで生成 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <style>
+            @keyframes slideUp {
+                from { transform: translateY(100%); }
+                to { transform: translateY(0); }
+            }
+        </style>
+    </div>
+
+    <script>
+        const shops = [
+            { id: 'sunhair', name: 'sun hair BRITS' },
+            { id: 'brothers', name: 'BRITS BROTHERS' },
+            { id: 'tile', name: 'THE TILE' },
+            { id: 'hanare', name: 'ブリッツ ハナレ' }
+        ];
+
+        // 初期マスターデータ
+        const defaultTasks = [
+            { id: 'floor', name: 'フロア' },
+            { id: 'toilet', name: 'トイレ' },
+            { id: 'shampoo', name: 'シャンプー台' },
+            { id: 'mirror', name: '鏡・セット面' },
+            { id: 'washing', name: '洗い場' }, 
+            { id: 'colorbooth', name: 'カラーブース' }, 
+            { id: 'vacuum', name: '掃除機' },
+            { id: 'roller', name: 'クッションコロコロ' } 
+        ];
+
+        const defaultStaffList = [
+            'しなる', 'さとこ', 'なっこ', 'ちひろ', 
+            'じっぽ', 'こうや', 'あいか', 'にこ', 'あず',
+            'みう', 'ひなの', 'かざと' 
+        ];
+
+        // 動的データ管理用変数
+        let masterData = {}; // 店舗ごとの設定を保持
+        let settingsTarget = 'ALL'; // 設定の対象
+
+        let currentShopId = shops[0].id;
+        let currentDateStr = ''; 
+        let currentSystemDate = ''; 
+        let cleaningData = {}; 
+        let toastTimeout = null;
+
+        // マスターデータの読み込み
+        function loadMasterData() {
+            const savedV2 = localStorage.getItem('brits_master_data_v2');
+            if (savedV2) {
+                masterData = JSON.parse(savedV2);
+                // 新規店舗追加時のためのフェールセーフ
+                shops.forEach(shop => {
+                    if(!masterData[shop.id]) {
+                        masterData[shop.id] = {
+                            tasks: JSON.parse(JSON.stringify(defaultTasks)),
+                            staffs: [...defaultStaffList]
+                        };
+                    }
+                });
+            } else {
+                // v1からv2へのデータ移行
+                const savedTasks = localStorage.getItem('brits_master_tasks');
+                const savedStaffs = localStorage.getItem('brits_master_staffs');
+                
+                let initialTasks = savedTasks ? JSON.parse(savedTasks) : defaultTasks;
+                let initialStaffs = savedStaffs ? JSON.parse(savedStaffs) : defaultStaffList;
+
+                masterData = {};
+                shops.forEach(shop => {
+                    masterData[shop.id] = {
+                        tasks: JSON.parse(JSON.stringify(initialTasks)),
+                        staffs: [...initialStaffs]
+                    };
+                });
+                saveMasterData();
+            }
+        }
+
+        function saveMasterData() {
+            localStorage.setItem('brits_master_data_v2', JSON.stringify(masterData));
+        }
+
+        function formatDate(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function getTodayString() {
+            return formatDate(new Date());
+        }
+
+        function getDisplayDateString(dateStr) {
+            const date = new Date(dateStr);
+            const days = ['日', '月', '火', '水', '木', '金', '土'];
+            const m = date.getMonth() + 1;
+            const d = date.getDate();
+            const w = days[date.getDay()];
+            return `${m}月${d}日 (${w})`;
+        }
+
+        function createEmptyData() {
+            const data = {};
+            shops.forEach(shop => {
+                data[shop.id] = {};
+                masterData[shop.id].tasks.forEach(task => {
+                    data[shop.id][task.id] = {
+                        isChecked: false,
+                        staffName: ''
+                    };
+                });
+            });
+            return data;
+        }
+
+        function isShopCompleted(shopId) {
+            if (!cleaningData[shopId]) return false;
+            let completed = 0;
+            const shopTasks = masterData[shopId].tasks;
+            shopTasks.forEach(task => {
+                if (cleaningData[shopId][task.id] && cleaningData[shopId][task.id].isChecked) {
+                    completed++;
+                }
+            });
+            return completed === shopTasks.length && shopTasks.length > 0;
+        }
+
+        function loadDataFromLocal(dateStr) {
+            document.getElementById('loading-overlay').classList.remove('hidden');
+            
+            setTimeout(() => {
+                const storageKey = `brits_cleaning_${dateStr}`;
+                const savedData = localStorage.getItem(storageKey);
+                
+                if (savedData) {
+                    cleaningData = JSON.parse(savedData);
+                } else {
+                    cleaningData = createEmptyData();
+                }
+                
+                document.getElementById('loading-overlay').classList.add('hidden');
+                renderTabs();
+                renderTasks();
+            }, 100); 
+        }
+
+        function updateTaskToDB(shopId, taskId, isChecked, staffName) {
+            if (!cleaningData[shopId]) return;
+            
+            cleaningData[shopId][taskId] = { isChecked, staffName };
+
+            const storageKey = `brits_cleaning_${currentDateStr}`;
+            localStorage.setItem(storageKey, JSON.stringify(cleaningData));
+            
+            showToast(); 
+            renderTabs(); // 完了判定が変わる可能性があるためタブも再描画
+        }
+
+        function changeDate(newDateStr) {
+            currentDateStr = newDateStr;
+            
+            let displayText = getDisplayDateString(currentDateStr);
+            if (currentDateStr === currentSystemDate) {
+                displayText = "本日 " + displayText;
+            }
+            document.getElementById('date-display-text').textContent = displayText;
+            document.getElementById('date-picker').value = currentDateStr;
+            
+            const nextBtn = document.getElementById('next-day-btn');
+            if (currentDateStr >= currentSystemDate) {
+                nextBtn.disabled = true;
+            } else {
+                nextBtn.disabled = false;
+            }
+
+            loadDataFromLocal(currentDateStr);
+        }
+
+        function updateDatePickerLimits() {
+            const picker = document.getElementById('date-picker');
+            picker.max = currentSystemDate;
+        }
+
+        function renderTabs() {
+            const tabsContainer = document.getElementById('shop-tabs');
+            tabsContainer.innerHTML = ''; 
+
+            if (!cleaningData[shops[0].id]) {
+                cleaningData = createEmptyData();
+            }
+
+            shops.forEach(shop => {
+                const isActive = shop.id === currentShopId;
+                const allCompleted = isShopCompleted(shop.id);
+                
+                const button = document.createElement('button');
+                const baseClasses = "py-3 px-2 text-sm font-bold rounded-lg border transition duration-300 active:scale-95 flex justify-center items-center gap-1.5";
+                let colorClasses = "";
+
+                if (isActive) {
+                    if (allCompleted) {
+                        colorClasses = "bg-green-500 text-white border-green-600 shadow-md";
+                    } else {
+                        colorClasses = "bg-sky-50 text-sky-600 border-sky-300 shadow-sm";
+                    }
+                } else {
+                    if (allCompleted) {
+                        colorClasses = "bg-green-50 text-green-600 border-green-200 hover:bg-green-100";
+                    } else {
+                        colorClasses = "bg-white text-slate-500 border-slate-200 hover:bg-slate-50";
+                    }
+                }
+
+                button.className = `${baseClasses} ${colorClasses}`;
+                
+                if (allCompleted) {
+                    const checkIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+                    button.innerHTML = `${checkIcon} <span>${shop.name}</span>`;
+                } else {
+                    button.textContent = shop.name;
+                }
+
+                button.onclick = () => {
+                    currentShopId = shop.id;
+                    renderTabs(); 
+                    renderTasks(); 
+                };
+                
+                tabsContainer.appendChild(button);
+            });
+        }
+
+        function renderTasks() {
+            const currentShop = shops.find(s => s.id === currentShopId);
+            document.getElementById('current-shop-name').textContent = currentShop.name;
+
+            const taskListContainer = document.getElementById('task-list');
+            taskListContainer.innerHTML = ''; 
+
+            if (!cleaningData[currentShopId]) {
+                cleaningData = createEmptyData();
+            }
+
+            const currentShopData = cleaningData[currentShopId];
+            const shopTasks = masterData[currentShopId].tasks;
+            const shopStaffs = masterData[currentShopId].staffs;
+
+            shopTasks.forEach(task => {
+                // 過去データに存在しない新しいタスクの初期化
+                if (!currentShopData[task.id]) {
+                    currentShopData[task.id] = { isChecked: false, staffName: '' };
+                }
+                const taskData = currentShopData[task.id];
+
+                const li = document.createElement('li');
+                li.className = "flex items-center justify-between p-4 hover:bg-slate-50 transition bg-white";
+                li.dataset.taskId = task.id; // 並べ替え判定用
+
+                const leftDiv = document.createElement('div');
+                leftDiv.className = "flex items-center gap-3 flex-1"; 
+
+                // ドラッグ操作用のハンドル（アイコン）を追加
+                const dragHandle = document.createElement('div');
+                dragHandle.className = "drag-handle p-1 text-slate-300 hover:text-slate-500 transition -ml-2";
+                dragHandle.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1.5"></circle><circle cx="9" cy="5" r="1.5"></circle><circle cx="9" cy="19" r="1.5"></circle><circle cx="15" cy="12" r="1.5"></circle><circle cx="15" cy="5" r="1.5"></circle><circle cx="15" cy="19" r="1.5"></circle></svg>`;
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = "custom-checkbox rounded text-sky-500 focus:ring-sky-500 pointer-events-none";
+                checkbox.checked = taskData.isChecked;
+
+                const label = document.createElement('span');
+                label.className = "text-base font-medium select-none";
+                label.textContent = task.name;
+
+                leftDiv.appendChild(dragHandle);
+                leftDiv.appendChild(checkbox);
+                leftDiv.appendChild(label);
+
+                const selectContainer = document.createElement('div');
+                
+                const select = document.createElement('select');
+                select.className = "block w-28 bg-white border border-slate-300 text-slate-700 py-2 pl-3 pr-8 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500";
+                
+                const defaultOption = document.createElement('option');
+                defaultOption.value = "";
+                defaultOption.textContent = "未完了";
+                defaultOption.selected = taskData.staffName === "";
+                select.appendChild(defaultOption);
+
+                shopStaffs.forEach(staff => {
+                    const option = document.createElement('option');
+                    option.value = staff;
+                    option.textContent = staff;
+                    if(taskData.staffName === staff) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
+
+                select.onchange = (e) => {
+                    let newStaffName = e.target.value;
+                    let newIsChecked = (newStaffName !== ""); 
+
+                    checkbox.checked = newIsChecked;
+                    updateItemStyle(li, newIsChecked);
+                    updateTaskToDB(currentShopId, task.id, newIsChecked, newStaffName);
+                    updateStatusBadge(); 
+                };
+
+                selectContainer.appendChild(select);
+
+                li.appendChild(leftDiv);
+                li.appendChild(selectContainer);
+                taskListContainer.appendChild(li);
+
+                updateItemStyle(li, taskData.isChecked);
+            });
+
+            // SortableJSの初期化 (ドラッグ&ドロップでの並べ替え)
+            if (window.taskSortable) {
+                window.taskSortable.destroy(); // 既存のインスタンスを破棄
+            }
+            window.taskSortable = new Sortable(taskListContainer, {
+                handle: '.drag-handle', // アイコン部分を持った時だけドラッグ可能にする
+                animation: 200,
+                ghostClass: 'sortable-ghost',
+                onEnd: function () {
+                    // 並べ替え後のDOM順序を取得してマスターデータに保存
+                    const newOrderIds = Array.from(taskListContainer.children).map(li => li.dataset.taskId);
+                    masterData[currentShopId].tasks = newOrderIds.map(id => masterData[currentShopId].tasks.find(t => t.id === id));
+                    saveMasterData();
+                    
+                    // 保存完了のトースト表示
+                    const toast = document.getElementById('toast');
+                    const span = toast.querySelector('span');
+                    const originalText = span.textContent;
+                    span.textContent = "順番を保存しました";
+                    toast.classList.add('toast-show');
+                    
+                    if(toastTimeout) clearTimeout(toastTimeout);
+                    toastTimeout = setTimeout(() => {
+                        toast.classList.remove('toast-show');
+                        setTimeout(() => { span.textContent = originalText; }, 300);
+                    }, 2000);
+                }
+            });
+
+            updateStatusBadge(); 
+        }
+
+        function updateStatusBadge() {
+            let completedCount = 0;
+            const shopTasks = masterData[currentShopId].tasks;
+            if(cleaningData[currentShopId]) {
+                shopTasks.forEach(task => {
+                    if(cleaningData[currentShopId][task.id] && cleaningData[currentShopId][task.id].isChecked) {
+                        completedCount++;
+                    }
+                });
+            }
+
+            const statusBadge = document.getElementById('completion-status');
+            statusBadge.textContent = `${completedCount}/${shopTasks.length}`;
+            
+            if(completedCount === shopTasks.length && shopTasks.length > 0) {
+                statusBadge.classList.replace('bg-slate-200', 'bg-green-100');
+                statusBadge.classList.replace('text-slate-500', 'text-green-700');
+            } else {
+                statusBadge.classList.remove('bg-green-100', 'text-green-700', 'bg-slate-200', 'text-slate-500');
+                statusBadge.classList.add('bg-slate-200', 'text-slate-500');
+            }
+        }
+
+        function updateItemStyle(element, isChecked) {
+            const span = element.querySelector('span');
+            if(isChecked) {
+                element.classList.add('bg-sky-50/60');
+                span.classList.add('text-slate-800');
+                span.classList.remove('text-slate-600');
+            } else {
+                element.classList.remove('bg-sky-50/60');
+                span.classList.remove('text-slate-800');
+                span.classList.add('text-slate-600');
+            }
+        }
+
+        function showToast() {
+            const toast = document.getElementById('toast');
+            toast.classList.add('toast-show');
+            
+            if(toastTimeout) clearTimeout(toastTimeout);
+            
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('toast-show');
+            }, 2000); 
+        }
+
+        // ====== 設定・マスターデータ管理関連 ======
+        
+        function renderSettings() {
+            const displayShopId = settingsTarget === 'ALL' ? currentShopId : settingsTarget;
+            const targetData = masterData[displayShopId];
+
+            // タスクリストの描画
+            const taskList = document.getElementById('settings-task-list');
+            taskList.innerHTML = '';
+            targetData.tasks.forEach(task => {
+                const li = document.createElement('li');
+                li.className = "flex justify-between items-center px-4 py-2.5";
+                li.innerHTML = `
+                    <span class="text-sm font-medium text-slate-700">${task.name}</span>
+                    <button class="text-slate-400 hover:text-red-500 p-1.5 rounded transition active:scale-95" onclick="removeTask('${task.id}')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                `;
+                taskList.appendChild(li);
+            });
+
+            // スタッフリストの描画
+            const staffListEl = document.getElementById('settings-staff-list');
+            staffListEl.innerHTML = '';
+            targetData.staffs.forEach(staff => {
+                const div = document.createElement('div');
+                div.className = "flex items-center gap-1.5 bg-slate-100 border border-slate-200 pl-3 pr-1 py-1 rounded-full text-sm font-medium text-slate-700 shadow-sm";
+                div.innerHTML = `
+                    <span>${staff}</span>
+                    <button class="text-slate-400 hover:text-red-500 hover:bg-red-50 transition rounded-full p-1 ml-1" onclick="removeStaff('${staff}')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                `;
+                staffListEl.appendChild(div);
+            });
+        }
+
+        window.removeTask = function(taskId) {
+            // 確認ポップアップ(confirm)を削除し、即時実行するように変更
+            if(settingsTarget === 'ALL') {
+                shops.forEach(shop => {
+                    masterData[shop.id].tasks = masterData[shop.id].tasks.filter(t => t.id !== taskId);
+                });
+            } else {
+                masterData[settingsTarget].tasks = masterData[settingsTarget].tasks.filter(t => t.id !== taskId);
+            }
+            saveMasterData();
+            renderSettings();
+        };
+
+        window.removeStaff = function(staffName) {
+            // 確認ポップアップ(confirm)を削除し、即時実行するように変更
+            if(settingsTarget === 'ALL') {
+                shops.forEach(shop => {
+                    masterData[shop.id].staffs = masterData[shop.id].staffs.filter(s => s !== staffName);
+                });
+            } else {
+                masterData[settingsTarget].staffs = masterData[settingsTarget].staffs.filter(s => s !== staffName);
+            }
+            saveMasterData();
+            renderSettings();
+        };
+
+        // アラートの代わりに入力欄の下にエラーメッセージを表示する関数
+        function showSettingsError(inputId, msg) {
+            let errorEl = document.getElementById(inputId + '-error');
+            if (!errorEl) {
+                errorEl = document.createElement('p');
+                errorEl.id = inputId + '-error';
+                errorEl.className = 'text-pink-500 text-xs mt-1 font-medium';
+                document.getElementById(inputId).parentElement.insertAdjacentElement('afterend', errorEl);
+            }
+            errorEl.textContent = msg;
+            setTimeout(() => {
+                if(errorEl.parentNode) errorEl.remove();
+            }, 3000);
+        }
+
+        // 設定モーダルのイベントリスナー
+        document.getElementById('add-task-btn').addEventListener('click', () => {
+            const input = document.getElementById('new-task-input');
+            const name = input.value.trim();
+            if(name) {
+                const newId = 'task_' + Date.now();
+                const newTask = { id: newId, name: name };
+                if(settingsTarget === 'ALL') {
+                    shops.forEach(shop => {
+                        masterData[shop.id].tasks.push({...newTask});
+                    });
+                } else {
+                    masterData[settingsTarget].tasks.push(newTask);
+                }
+                saveMasterData();
+                input.value = '';
+                renderSettings();
+            }
+        });
+
+        document.getElementById('add-staff-btn').addEventListener('click', () => {
+            const input = document.getElementById('new-staff-input');
+            const name = input.value.trim();
+            if(name) {
+                if(settingsTarget === 'ALL') {
+                    let added = false;
+                    shops.forEach(shop => {
+                        if(!masterData[shop.id].staffs.includes(name)) {
+                            masterData[shop.id].staffs.push(name);
+                            added = true;
+                        }
+                    });
+                    if(!added) {
+                        // alertを置き換え
+                        showSettingsError('new-staff-input', 'すべての店舗に既に登録されています');
+                        return;
+                    }
+                } else {
+                    if(!masterData[settingsTarget].staffs.includes(name)) {
+                        masterData[settingsTarget].staffs.push(name);
+                    } else {
+                        // alertを置き換え
+                        showSettingsError('new-staff-input', '既に登録されているスタッフです');
+                        return;
+                    }
+                }
+                saveMasterData();
+                input.value = '';
+                renderSettings();
+            }
+        });
+
+        // 編集対象の切り替え
+        document.getElementById('settings-target-select').addEventListener('change', (e) => {
+            settingsTarget = e.target.value;
+            const warning = document.getElementById('settings-target-warning');
+            if(settingsTarget === 'ALL') {
+                warning.textContent = '※追加・削除した内容がすべての店舗に適用されます。';
+                warning.classList.remove('text-orange-600');
+                warning.classList.add('text-sky-600');
+            } else {
+                const shopName = shops.find(s => s.id === settingsTarget)?.name || '';
+                warning.textContent = `※「${shopName}」のみ編集されます。`;
+                warning.classList.remove('text-sky-600');
+                warning.classList.add('text-orange-600');
+            }
+            renderSettings();
+        });
+
+        document.getElementById('settings-open-btn').addEventListener('click', () => {
+            // 開くたびに「全店舗一括」をデフォルトにする
+            settingsTarget = 'ALL';
+            document.getElementById('settings-target-select').value = 'ALL';
+            const warning = document.getElementById('settings-target-warning');
+            warning.textContent = '※追加・削除した内容がすべての店舗に適用されます。';
+            warning.classList.remove('text-orange-600');
+            warning.classList.add('text-sky-600');
+
+            renderSettings();
+            document.getElementById('settings-modal').classList.remove('hidden');
+        });
+
+        document.getElementById('settings-modal').addEventListener('click', (e) => {
+            if(e.target === document.getElementById('settings-modal')) {
+                closeSettings();
+            }
+        });
+
+        document.getElementById('settings-close-btn').addEventListener('click', closeSettings);
+
+        function closeSettings() {
+            document.getElementById('settings-modal').classList.add('hidden');
+            // 追加や削除が行われた可能性があるので画面を更新
+            renderTabs();
+            renderTasks();
+        }
+
+        // ====== 既存のイベントリスナー ======
+
+        document.getElementById('date-picker').addEventListener('change', (e) => {
+            changeDate(e.target.value);
+        });
+
+        document.getElementById('prev-day-btn').addEventListener('click', () => {
+            const date = new Date(currentDateStr);
+            date.setDate(date.getDate() - 1);
+            changeDate(formatDate(date));
+        });
+
+        document.getElementById('next-day-btn').addEventListener('click', () => {
+            const date = new Date(currentDateStr);
+            date.setDate(date.getDate() + 1);
+            const newDateStr = formatDate(date);
+            if(newDateStr <= currentSystemDate) {
+                changeDate(newDateStr);
+            }
+        });
+
+        setInterval(() => {
+            const actualToday = getTodayString();
+            if (actualToday !== currentSystemDate) {
+                currentSystemDate = actualToday;
+                updateDatePickerLimits();
+                if (currentDateStr !== actualToday) {
+                    changeDate(actualToday);
+                }
+            }
+        }, 60000);
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadMasterData(); // マスターデータをロード
+            currentSystemDate = getTodayString();
+            updateDatePickerLimits();
+            changeDate(currentSystemDate);
+        });
+    </script>
+</body>
+</html>
