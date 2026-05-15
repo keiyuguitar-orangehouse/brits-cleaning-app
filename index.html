@@ -44,7 +44,7 @@
 </head>
 <body class="antialiased pb-6">
 
-    <!-- 合言葉（PIN）入力モーダル (初期状態をhiddenにしました) -->
+    <!-- 合言葉（PIN）入力モーダル -->
     <div id="pin-modal" class="hidden fixed inset-0 bg-slate-900/95 z-[100] flex flex-col justify-center items-center backdrop-blur-md">
         <div class="bg-white p-8 rounded-3xl shadow-2xl w-[90%] max-w-sm text-center">
             <div class="mb-4 flex justify-center">
@@ -196,7 +196,7 @@
         import { getFirestore, collection, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- お店の合言葉設定 ---
-        const SHOP_PIN = "3105"; // ★ここに設定したい4桁の数字を入力します
+        const SHOP_PIN = "3105"; // ★合言葉「3105」
 
         // --- 初期設定とデータ構造 ---
         const shops = [
@@ -229,17 +229,15 @@
         let app, auth, db, appId, currentUser;
         let unsubscribeCleaning = null;
         let unsubscribeMaster = null;
-        let isOnline = false; // クラウド通信できているか
+        let isOnline = false;
 
         // --- 合言葉（PIN）認証ロジック ---
         function checkPin() {
             const input = document.getElementById('pin-input').value;
             if (input === SHOP_PIN) {
-                // 正解なら端末に記憶してロック解除
                 localStorage.setItem('brits_app_pin', input);
                 unlockApp();
             } else {
-                // 不正解ならエラー表示
                 document.getElementById('pin-error').classList.remove('hidden');
                 document.getElementById('pin-input').value = '';
             }
@@ -248,9 +246,8 @@
         function unlockApp() {
             document.getElementById('pin-modal').classList.add('hidden');
             document.getElementById('pin-error').classList.add('hidden');
-            // ロック解除後に初めてクラウドへの接続を開始する
             initFirebase();
-            changeDate(currentSystemDate); // 画面の初期描画
+            changeDate(currentSystemDate);
         }
 
         document.getElementById('pin-submit-btn').addEventListener('click', checkPin);
@@ -262,7 +259,7 @@
         // --- Firebase 初期化フロー ---
         async function initFirebase() {
             try {
-                // ★ あなたの Firebase Config を直接設定しました
+                // 正しい Firebase Config
                 const firebaseConfig = {
                   apiKey: "AIzaSyAONDcF143PbQ1Y8AKJe21Q7yh5XaXFKWI",
                   authDomain: "brits-cleaning.firebaseapp.com",
@@ -276,21 +273,21 @@
                 app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
-                appId = 'brits-cleaning'; // プロジェクト名に合わせました
+                appId = 'brits-cleaning';
                 isOnline = true;
                 
-                // 認証（入館証の発行）
+                // 本番用の匿名認証
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token); // プレビュー用
+                    await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
-                    await signInAnonymously(auth); // 本番（GitHub Pages等）用
+                    await signInAnonymously(auth);
                 }
 
                 onAuthStateChanged(auth, (user) => {
                     currentUser = user;
                     if(user) {
-                        listenMasterData(); // 全員共通の設定データをリッスン
-                        listenCleaningData(currentDateStr); // 今日の清掃データをリッスン
+                        listenMasterData(); 
+                        listenCleaningData(currentDateStr);
                         updateSyncUI(true);
                     }
                 });
@@ -298,13 +295,6 @@
                 console.warn("ローカルモードで起動します:", error);
                 isOnline = false;
                 updateSyncUI(false);
-                
-                // ★ デバッグ用：エラー内容を画面に赤字で表示する処理を追加
-                const errorBox = document.createElement('div');
-                errorBox.className = "bg-red-50 border border-red-200 text-red-600 p-3 mb-4 rounded-lg text-xs font-medium shadow-sm break-all";
-                errorBox.innerHTML = `<strong>クラウド接続エラー:</strong><br>${error.message}<br>※このエラー文をチャットで教えてください。`;
-                document.querySelector('main').prepend(errorBox);
-                
                 loadLocalMasterDataFallback();
                 loadLocalDataFallback(currentDateStr);
             }
@@ -322,7 +312,6 @@
             }
         }
 
-        // --- クラウドからのリアルタイムデータ受信 (リスナー) ---
         function listenMasterData() {
             if(!currentUser || !db) return;
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'master', 'settings');
@@ -331,7 +320,6 @@
                 if(docSnap.exists()) {
                     masterData = docSnap.data().data;
                 } else {
-                    // 初回のみデフォルトデータをクラウドに書き込む
                     masterData = createDefaultMasterData();
                     saveMasterData(); 
                 }
@@ -343,7 +331,7 @@
 
         function listenCleaningData(dateStr) {
             if(!currentUser || !db) return;
-            if(unsubscribeCleaning) unsubscribeCleaning(); // 以前の日付のリッスンを解除
+            if(unsubscribeCleaning) unsubscribeCleaning();
 
             document.getElementById('loading-overlay').classList.remove('hidden');
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'cleaning', dateStr);
@@ -363,11 +351,10 @@
             });
         }
 
-        // --- データ保存処理 (クラウド or ローカル) ---
         function saveMasterData() {
             if (isOnline && db && currentUser) {
                 const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'master', 'settings');
-                setDoc(docRef, { data: masterData }, { merge: true }); // クラウドにアップロード
+                setDoc(docRef, { data: masterData }, { merge: true });
             } else {
                 localStorage.setItem('brits_master_data_v2', JSON.stringify(masterData));
             }
@@ -379,7 +366,7 @@
 
             if (isOnline && db && currentUser) {
                 const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'cleaning', currentDateStr);
-                setDoc(docRef, { data: cleaningData }, { merge: true }); // 他の人の画面にも即反映される
+                setDoc(docRef, { data: cleaningData }, { merge: true });
             } else {
                 localStorage.setItem(`brits_cleaning_${currentDateStr}`, JSON.stringify(cleaningData));
             }
@@ -388,7 +375,6 @@
             renderTabs(); 
         }
 
-        // --- 補助関数・UI更新ロジック ---
         function createDefaultMasterData() {
             let data = {};
             shops.forEach(shop => {
@@ -413,16 +399,14 @@
             return data;
         }
 
-        // --- UIレンダリング ---
         function renderTabs() {
             const tabsContainer = document.getElementById('shop-tabs');
             tabsContainer.innerHTML = ''; 
-            if (!masterData[shops[0].id]) return; // マスター未読込時はスキップ
+            if (!masterData[shops[0].id]) return;
 
             shops.forEach(shop => {
                 const isActive = shop.id === currentShopId;
                 
-                // 完了判定ロジック
                 let completed = 0;
                 const shopTasks = masterData[shop.id].tasks;
                 shopTasks.forEach(task => {
@@ -512,7 +496,7 @@
                 onEnd: function () {
                     const newOrderIds = Array.from(container.children).map(li => li.dataset.taskId);
                     masterData[currentShopId].tasks = newOrderIds.map(id => masterData[currentShopId].tasks.find(t => t.id === id));
-                    saveMasterData(); // クラウドに並び順も保存
+                    saveMasterData(); 
                     showToast("順番を保存しました");
                 }
             });
@@ -543,7 +527,6 @@
             toastTimeout = setTimeout(() => toast.classList.remove('toast-show'), 2000); 
         }
 
-        // --- 設定モーダル関連ロジック ---
         function renderSettingsIfOpen() {
             if(!document.getElementById('settings-modal').classList.contains('hidden')) {
                 renderSettings();
@@ -610,7 +593,6 @@
             saveMasterData();
         }
 
-        // --- イベントリスナー設定 ---
         document.getElementById('settings-target-select').addEventListener('change', (e) => {
             settingsTarget = e.target.value;
             const warning = document.getElementById('settings-target-warning');
@@ -628,8 +610,6 @@
         document.getElementById('settings-open-btn').addEventListener('click', () => {
             settingsTarget = 'ALL';
             document.getElementById('settings-target-select').value = 'ALL';
-            document.getElementById('settings-target-warning').textContent = '※追加・削除した内容がすべての店舗に適用されます。';
-            document.getElementById('settings-target-warning').className = 'text-xs text-sky-600 mt-1.5 font-medium';
             renderSettings();
             document.getElementById('settings-modal').classList.remove('hidden');
         });
@@ -667,7 +647,6 @@
             }
         });
 
-        // 日付・初期化関連
         function getTodayString() {
             const date = new Date();
             return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -702,7 +681,6 @@
             if(newDateStr <= currentSystemDate) changeDate(newDateStr);
         });
 
-        // オフライン用フォールバック
         function loadLocalMasterDataFallback() {
             const saved = localStorage.getItem('brits_master_data_v2');
             masterData = saved ? JSON.parse(saved) : createDefaultMasterData();
@@ -723,13 +701,10 @@
             currentDateStr = currentSystemDate;
             document.getElementById('date-picker').max = currentSystemDate;
 
-            // --- アプリ起動時のPINチェック ---
             const savedPin = localStorage.getItem('brits_app_pin');
             if (savedPin === SHOP_PIN) {
-                // 過去に正しい合言葉を入力済みならすぐにロック解除
                 unlockApp();
             } else {
-                // 未入力、または間違っていれば入力画面を表示
                 document.getElementById('pin-modal').classList.remove('hidden');
             }
         });
