@@ -319,9 +319,13 @@
             unsubscribeMaster = onSnapshot(docRef, (docSnap) => {
                 if(docSnap.exists()) {
                     masterData = docSnap.data().data;
+                } else if (docSnap.metadata.fromCache) {
+                    // オフライン時の「設定が無い」は端末キャッシュ由来で信用できない。
+                    // ここで初期設定を書き込むとサーバー上の項目設定が消え、過去の履歴が参照不能になる。
+                    return;
                 } else {
                     masterData = createDefaultMasterData();
-                    saveMasterData(); 
+                    saveMasterData();
                 }
                 renderSettingsIfOpen();
                 renderTabs();
