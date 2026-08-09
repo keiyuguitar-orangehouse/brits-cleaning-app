@@ -148,7 +148,7 @@
                         <option value="tile">THE TILE のみ</option>
                         <option value="hanare">ブリッツ ハナレ のみ</option>
                     </select>
-                    <p id="settings-target-warning" class="text-xs text-sky-600 mt-1.5 font-medium">※追加・削除した内容がすべての店舗に適用されます。</p>
+                    <p id="settings-target-warning" class="text-xs text-sky-600 mt-1.5 font-medium">※追加・削除・名前変更した内容がすべての店舗に適用されます。</p>
                 </div>
 
                 <div class="p-4 overflow-y-auto flex-1 space-y-6 pb-10">
@@ -162,6 +162,7 @@
                             <input type="text" id="new-task-input" placeholder="新しい項目名" class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 shadow-sm">
                             <button id="add-task-btn" class="bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-slate-700 transition active:scale-95 shadow-sm whitespace-nowrap">追加</button>
                         </div>
+                        <p class="text-xs text-slate-500 mb-1.5">※項目名をタップすると名前を変更できます。</p>
                         <ul id="settings-task-list" class="bg-slate-50 border border-slate-200 rounded-lg divide-y divide-slate-200">
                             <!-- JSで生成 -->
                         </ul>
@@ -547,18 +548,23 @@
             taskList.innerHTML = '';
             targetData.tasks.forEach(task => {
                 const li = document.createElement('li');
-                li.className = "flex justify-between items-center px-4 py-2.5";
-                li.innerHTML = `
-                    <span class="text-sm font-medium text-slate-700">${task.name}</span>
-                    <button class="text-slate-400 hover:text-red-500 p-1.5 rounded transition active:scale-95 btn-remove-task" data-id="${task.id}">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                    </button>
-                `;
-                taskList.appendChild(li);
-            });
+                li.className = "flex justify-between items-center gap-2 px-4 py-2.5";
 
-            document.querySelectorAll('.btn-remove-task').forEach(btn => {
-                btn.addEventListener('click', (e) => removeTask(e.currentTarget.dataset.id));
+                const nameInput = document.createElement('input');
+                nameInput.type = 'text';
+                nameInput.value = task.name;
+                nameInput.className = "flex-1 min-w-0 text-sm font-medium text-slate-700 bg-transparent border border-transparent rounded px-2 py-1 focus:bg-white focus:border-sky-300 focus:outline-none";
+                nameInput.addEventListener('change', () => renameTask(task.id, nameInput.value));
+                nameInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') nameInput.blur(); });
+
+                const removeBtn = document.createElement('button');
+                removeBtn.className = "shrink-0 text-slate-400 hover:text-red-500 p-1.5 rounded transition active:scale-95";
+                removeBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+                removeBtn.addEventListener('click', () => removeTask(task.id));
+
+                li.appendChild(nameInput);
+                li.appendChild(removeBtn);
+                taskList.appendChild(li);
             });
 
             const staffListEl = document.getElementById('settings-staff-list');
@@ -578,6 +584,18 @@
             document.querySelectorAll('.btn-remove-staff').forEach(btn => {
                 btn.addEventListener('click', (e) => removeStaff(e.currentTarget.dataset.name));
             });
+        }
+
+        function renameTask(taskId, newName) {
+            const name = newName.trim();
+            if(!name) { renderSettings(); return; }
+            const targets = settingsTarget === 'ALL' ? shops.map(s => s.id) : [settingsTarget];
+            targets.forEach(shopId => {
+                const task = masterData[shopId].tasks.find(t => t.id === taskId);
+                if(task) task.name = name;
+            });
+            saveMasterData();
+            showToast("項目名を変更しました");
         }
 
         function removeTask(taskId) {
@@ -602,7 +620,7 @@
             settingsTarget = e.target.value;
             const warning = document.getElementById('settings-target-warning');
             if(settingsTarget === 'ALL') {
-                warning.textContent = '※追加・削除した内容がすべての店舗に適用されます。';
+                warning.textContent = '※追加・削除・名前変更した内容がすべての店舗に適用されます。';
                 warning.className = 'text-xs text-sky-600 mt-1.5 font-medium';
             } else {
                 const shopName = shops.find(s => s.id === settingsTarget)?.name || '';
